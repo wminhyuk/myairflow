@@ -23,7 +23,7 @@ with DAG(
     catchup=True,
     tags=['api', 'movie'],
 ) as dag:
-    REQUIREMENTS = ["git+https://github.com/ppabam/movie.git@0.2.5"]
+    REQUIREMENTS = ["git+https://github.com/wminhyuk/movie.git@2503.18.1"]
     BASE_DIR = "~/data/movies/dailyboxoffice"
 
     def branch_fun(ds_nodash):
@@ -41,6 +41,14 @@ with DAG(
     
     def fn_merge_data(ds_nodash):
         print(ds_nodash)
+        # df read => ~/data/movies/dailyboxoffice/dt=20240101
+        # df1 = fill_na_with_column(df, 'multiMovieYn')
+        # df2 = fill_na_with_column(df1, 'repNationCd')
+        # df3 = df2.drop(columns=['rnum', 'rank', 'rankInten', 'salesShare'])
+        # unique_df = df3.drop_duplicates() # 25
+        # unique_df.loc[:, "rnum"] = unique_df["audiCnt"].rank(ascending=False).astype(int)
+        # unique_df.loc[:, "rank"] = unique_df["audiCnt"].rank(ascending=False).astype(int)
+        # save -> ~/data/movies/dailyboxoffice_merged/dt=20240101
         
     merge_data = PythonVirtualenvOperator(
         task_id='merge.data',
@@ -136,6 +144,14 @@ with DAG(
             trigger_rule="all_done")
     get_end = EmptyOperator(task_id='get.end')
     
+    make_done = BashOperator(
+        task_id="make.done",
+        bash_command="""
+        DONE_BASE=/home/seominhyuk/data/movies/done/dailyboxoffice
+        mkdir -p $DONE_BASE/dt={{ds_nodash}}
+        touch $DONE_BASE/dt={{ds_nodash}}/_DONE
+        """
+    )    
 
     start >> branch_op
 
@@ -144,5 +160,5 @@ with DAG(
     branch_op >> echo_task
     get_start >> [multi_y, multi_n, nation_k, nation_f, no_param] >> get_end
 
-    get_end >> merge_data >> end
+    get_end >> merge_data >> make_done >> end
 
